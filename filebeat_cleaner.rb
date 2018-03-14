@@ -8,7 +8,7 @@ registry_path = '/var/lib/filebeat/registry'
 move_path = '/opt/data/filebeat/done'
 
 # Command line options start
-options = { verbose: false, summary: false, move: true }
+options = { verbose: false, summary: false, move: true, remove: false }
 opt_parser = OptionParser.new do |opt|
   opt.banner = 'Usage: ruby log_rotate.rb [options]'
   opt.on( '-f', '--file REGISTRY', 'Full path to the registry file (default /var/lib/filebeat/registry)' ) do |registry|
@@ -23,6 +23,10 @@ opt_parser = OptionParser.new do |opt|
   end
   opt.on( '-m', '--move', 'Does not move any log file' ) do
     options[:move] = false
+  end
+  opt.on( '-r', '--remove', 'Remove files, instead of moving (dangerous)' ) do
+	options[:move] = false
+    options[:remove] = true
   end
   opt.on( '-s', '--summary', 'Summary of I/O operations' ) do
     options[:summary] = true
@@ -46,7 +50,9 @@ end
 if options[:verbose]
   puts "\n*** VERBOSE ***\n\n"
   puts "registry_path: '#{registry_path}'"
-  puts "move_path: '#{move_path}'"
+  if !options[:remove]
+  	puts "move_path: '#{move_path}'"
+  end
 end
 
 # Read data registry, and parse the JSON
@@ -66,10 +72,14 @@ if File.exist?( registry_path ) then
       if options[:move] then
         FileUtils.mkdir_p(move_path) unless File.exists?(move_path)
         FileUtils.move( record['source'], move_path )
+      elsif options[:remove] then
+        FileUtils.rm( record['source'] )
       end
       if options[:verbose] then
         if options[:move] then
           puts "** MOVED ** right now '#{record['source']}'"
+        elsif options[:remove] then
+          puts "** REMOVED ** right now '#{record['source']}'"
         else
           puts "** SHOULD BE MOVED ** right now '#{record['source']}'"
         end
@@ -115,6 +125,8 @@ if options[:summary] then
   puts "\n*** SUMMARY ***\n\n"
   if options[:move] then
     puts "Moved files:    \t#{count_move}"
+  elsif options[:remove] then
+    puts "Removed files:  \t#{count_move}"
   else
     puts "Movable files:  \t#{count_move}"
   end
